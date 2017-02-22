@@ -93,7 +93,7 @@ namespace EpubSharp.Format.Readers
                     {
                         IdRef = (string) elem.Attribute(OpfSpineItemRef.Attributes.IdRef),
                         Linear = (string) elem.Attribute(OpfSpineItemRef.Attributes.Linear) != "no",
-                        Id = (string) elem.Attribute(OpfSpineItemRef.Attributes.Id),
+                        Id = (string) elem.Attribute(OpfSpineItemRef.Attributes.Id) ?? (string)elem.Attribute(OpfSpineItemRef.Attributes.IdRef),
                         Properties = ((string) elem.Attribute(OpfSpineItemRef.Attributes.Properties))?.Split(' ').ToList() ?? new List<string>()
                     }),
                     Toc = spine?.Attribute(OpfSpine.Attributes.Toc)?.Value

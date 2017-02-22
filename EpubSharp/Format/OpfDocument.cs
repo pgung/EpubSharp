@@ -42,14 +42,14 @@ namespace EpubSharp.Format
         Epub2 = 2,
         Epub3
     }
-    
+
     public class OpfDocument
     {
         internal static class Attributes
         {
             public static readonly XName Version = "version";
         }
-        
+
         public EpubVersion EpubVersion { get; internal set; } = new EpubVersion();
         public OpfMetadata Metadata { get; internal set; } = new OpfMetadata();
         public OpfManifest Manifest { get; internal set; } = new OpfManifest();
@@ -79,7 +79,7 @@ namespace EpubSharp.Format
             Manifest.DeleteCoverItem(meta?.Text);
             return path;
         }
-        
+
         internal string FindNcxPath()
         {
             string path = null;
@@ -269,11 +269,48 @@ namespace EpubSharp.Format
         }
 
         public string Toc { get; internal set; }
+        
+        public NavDocument TOCEpub3 { get; internal set; }
+        public NcxDocument TOCEpub2 { get; internal set; }
+
         public ICollection<OpfSpineItemRef> ItemRefs { get; internal set; } = new List<OpfSpineItemRef>();
+
+        public void SetItems(IList<OpfSpineItemRef> items)
+        {
+            ItemRefs = items;
+        }
+
+        public IEnumerable<OpfSpineItemRef> Spines(OpfManifest manifest)
+        {
+            foreach (var nav in ItemRefs)
+                foreach (var resource in manifest.Items)
+                    if (nav.Id == resource.Id)
+                        yield return new OpfSpineItemRef(resource.Id, resource.Href, new List<OpfSpineItemRef>());
+        }
+
+        public ICollection<OpfSpineItemRef> NavigationItems(OpfManifest manifest)
+        {
+            // If Toc == NCX -> Epub 2
+            // If Toc == Nav -> Epub 3
+            var navigationItems = TOCEpub2.NavigationItems();
+            return navigationItems.Any() ? navigationItems.ToList() : Spines(manifest).ToList();
+        }
     }
 
     public class OpfSpineItemRef
     {
+        
+
+        public OpfSpineItemRef()
+        {
+        }
+        public OpfSpineItemRef(string id, string href, List<OpfSpineItemRef> children)
+        {
+            Id = id;
+            IdRef = href;
+            Children = children;
+        }
+
         internal static class Attributes
         {
             public static readonly XName IdRef = "idref";
@@ -282,10 +319,17 @@ namespace EpubSharp.Format
             public static readonly XName Properties = "properties";
         }
 
+        public void SetIdRef(string idRef)
+        {
+            IdRef = idRef;
+        }
+
         public string IdRef { get; internal set; }
         public bool Linear { get; internal set; }
         public string Id { get; internal set; }
         public ICollection<string> Properties { get; internal set; } = new List<string>();
+
+        public IEnumerable<OpfSpineItemRef> Children;
 
         public override string ToString()
         {

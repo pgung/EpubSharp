@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Xml.Linq;
 
 namespace EpubSharp.Format
@@ -33,6 +34,21 @@ namespace EpubSharp.Format
         public NcxNapMap NavMap { get; internal set; } = new NcxNapMap(); // <navMap> is a required element in NCX.
         public NcxPageList PageList { get; internal set; }
         public NcxNavList NavList { get; internal set; }
+
+        public IEnumerable<OpfSpineItemRef> NavigationItems()
+        {
+            foreach (var navpoint in NavMap.NavPoints)
+            {
+                yield return toSpineItem(navpoint);
+            }
+        }
+
+        private OpfSpineItemRef toSpineItem(NcxNavPoint navPoint)
+        {
+            var items = navPoint.NavPoints != null ? navPoint.NavPoints.Select(x => toSpineItem(x)).ToList() : new List<OpfSpineItemRef>();
+            //, navPoint.ContentSrc
+            return new OpfSpineItemRef(navPoint.Id, navPoint.NavLabelText, items);
+        }
     }
 
     public class NcxMeta
@@ -75,7 +91,7 @@ namespace EpubSharp.Format
         // In case <navLabel> or <content/> need to carry more data, then they should have a dedicated model created.
         public string NavLabelText { get; internal set; }
         public string ContentSrc { get; internal set; }
-        public ICollection<NcxNavPoint> NavPoints { get; internal set; } = new List<NcxNavPoint>();
+        public IEnumerable<NcxNavPoint> NavPoints { get; internal set; } = new List<NcxNavPoint>();
 
         public override string ToString()
         {

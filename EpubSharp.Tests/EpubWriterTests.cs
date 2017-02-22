@@ -11,7 +11,7 @@ namespace EpubSharp.Tests
         [Test]
         public void CanWriteTest()
         {
-            var book = EpubReader.Read(@"Samples/epub-assorted/Inversions - Iain M. Banks.epub");
+            var book = EpubReader.Read(@"Samples/epub-assorted/afrique_du_sud_2016_carnet_petit_fute.epub", null);
             var writer = new EpubWriter(book);
             writer.Write(new MemoryStream());
         }
@@ -109,7 +109,7 @@ namespace EpubSharp.Tests
         [Test]
         public void RemoveCoverTest()
         {
-            var epub1 = EpubReader.Read(@"Samples/epub-assorted/Inversions - Iain M. Banks.epub");
+            var epub1 = EpubReader.Read(@"Samples/epub-assorted/afrique_du_sud_2016_carnet_petit_fute.epub", null);
 
             var writer = new EpubWriter(EpubWriter.MakeCopy(epub1));
             writer.RemoveCover();
@@ -175,7 +175,7 @@ namespace EpubSharp.Tests
         [Test]
         public void ClearBogtyvenChaptersTest()
         {
-            var writer = new EpubWriter(EpubReader.Read(@"Samples/epub-assorted/bogtyven.epub"));
+            var writer = new EpubWriter(EpubReader.Read(@"Samples/epub-assorted/afrique_du_sud_2016_carnet_petit_fute.epub", null));
             writer.ClearChapters();
 
             var epub = WriteAndRead(writer);

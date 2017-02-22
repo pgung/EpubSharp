@@ -11,7 +11,7 @@ namespace EpubSharp
 {
     public static class EpubReader
     {
-        public static EpubBook Read(string filePath)
+        public static EpubBook Read(string filePath, string password)
         {
             if (filePath == null) throw new ArgumentNullException(nameof(filePath));
 
@@ -97,7 +97,7 @@ namespace EpubSharp
             {
                 return LoadChaptersFromNcx(book.Format.Ncx.NavMap.NavPoints);
             }
-            
+
             return new List<EpubChapter>();
         }
 
@@ -196,74 +196,74 @@ namespace EpubSharp
                     case EpubContentType.Xml:
                     case EpubContentType.Dtbook:
                     case EpubContentType.DtbookNcx:
-                    {
-                        var file = new EpubTextFile
                         {
-                            FileName = fileName,
-                            MimeType = mimeType,
-                            ContentType = contentType
-                        };
+                            var file = new EpubTextFile
+                            {
+                                FileName = fileName,
+                                MimeType = mimeType,
+                                ContentType = contentType
+                            };
 
-                        using (var stream = entry.Open())
-                        {
-                            file.Content = stream.ReadToEnd();
-                        }
-
-                        switch (contentType)
-                        {
-                            case EpubContentType.Xhtml11:
-                                resources.Html.Add(file);
-                                break;
-                            case EpubContentType.Css:
-                                resources.Css.Add(file);
-                                break;
-                            default:
-                                resources.Other.Add(file);
-                                break;
+                            using (var stream = entry.Open())
+                            {
+                                file.Content = stream.ReadToEnd();
                             }
-                        break;
-                    }
+
+                            switch (contentType)
+                            {
+                                case EpubContentType.Xhtml11:
+                                    resources.Html.Add(file);
+                                    break;
+                                case EpubContentType.Css:
+                                    resources.Css.Add(file);
+                                    break;
+                                default:
+                                    resources.Other.Add(file);
+                                    break;
+                            }
+                            break;
+                        }
                     default:
-                    {
-                        var file = new EpubByteFile
                         {
-                            FileName = fileName,
-                            MimeType = mimeType,
-                            ContentType = contentType
-                        };
-
-                        using (var stream = entry.Open())
-                        {
-                            if (stream == null)
+                            var file = new EpubByteFile
                             {
-                                throw new EpubException($"Incorrect EPUB file: content file \"{fileName}\" specified in manifest is not found");
+                                FileName = fileName,
+                                MimeType = mimeType,
+                                ContentType = contentType
+                            };
+
+                            using (var stream = entry.Open())
+                            {
+                                if (stream == null)
+                                {
+                                    throw new EpubException($"Incorrect EPUB file: content file \"{fileName}\" specified in manifest is not found");
+                                }
+
+                                using (var memoryStream = new MemoryStream((int)entry.Length))
+                                {
+                                    stream.CopyTo(memoryStream);
+                                    file.Content = memoryStream.ToArray();
+                                }
                             }
 
-                            using (var memoryStream = new MemoryStream((int) entry.Length))
+                            switch (contentType)
                             {
-                                stream.CopyTo(memoryStream);
-                                file.Content = memoryStream.ToArray();
+                                case EpubContentType.ImageGif:
+                                case EpubContentType.ImageJpeg:
+                                case EpubContentType.ImagePng:
+                                case EpubContentType.ImageSvg:
+                                    resources.Images.Add(file);
+                                    break;
+                                case EpubContentType.FontTruetype:
+                                case EpubContentType.FontOpentype:
+                                    resources.Fonts.Add(file);
+                                    break;
+                                default:
+                                    resources.Other.Add(file);
+                                    break;
                             }
+                            break;
                         }
-
-                        switch (contentType)
-                        {
-                            case EpubContentType.ImageGif:
-                            case EpubContentType.ImageJpeg:
-                            case EpubContentType.ImagePng:
-                            case EpubContentType.ImageSvg:
-                                resources.Images.Add(file);
-                                break;
-                            case EpubContentType.FontTruetype:
-                            case EpubContentType.FontOpentype:
-                                resources.Fonts.Add(file);
-                                break;
-                            default:
-                                resources.Other.Add(file);
-                                break;
-                        }
-                        break;
-                    }
                 }
             }
 

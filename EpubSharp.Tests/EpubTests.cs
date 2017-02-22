@@ -35,7 +35,7 @@ namespace EpubSharp.Tests
         {
             foreach (var archive in archives)
             {
-                var originalEpub = EpubReader.Read(archive);
+                var originalEpub = EpubReader.Read(archive, null);
 
                 var stream = new MemoryStream();
                 EpubWriter.Write(originalEpub, stream);
