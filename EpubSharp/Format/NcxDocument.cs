@@ -33,22 +33,7 @@ namespace EpubSharp.Format
         public string DocAuthor { get; internal set; }
         public NcxNapMap NavMap { get; internal set; } = new NcxNapMap(); // <navMap> is a required element in NCX.
         public NcxPageList PageList { get; internal set; }
-        public NcxNavList NavList { get; internal set; }
-
-        public IEnumerable<OpfSpineItemRef> NavigationItems()
-        {
-            foreach (var navpoint in NavMap.NavPoints)
-            {
-                yield return toSpineItem(navpoint);
-            }
-        }
-
-        private OpfSpineItemRef toSpineItem(NcxNavPoint navPoint)
-        {
-            var items = navPoint.NavPoints != null ? navPoint.NavPoints.Select(x => toSpineItem(x)).ToList() : new List<OpfSpineItemRef>();
-            //, navPoint.ContentSrc
-            return new OpfSpineItemRef(navPoint.Id, navPoint.NavLabelText, items);
-        }
+        public NcxNavList NavList { get; internal set; }       
     }
 
     public class NcxMeta

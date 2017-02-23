@@ -36,7 +36,7 @@ namespace EpubSharp.Tests
             Assert.IsNotNull(epub.SpecialResources.Ocf);
             Assert.IsNotNull(epub.SpecialResources.Opf);
 
-            Assert.AreEqual(0, epub.TableOfContents.Count);
+            Assert.AreEqual(0, epub.TableOfContents.EpubChapters.Count());
 
             Assert.IsNotNull(epub.Format.Ocf);
             Assert.IsNotNull(epub.Format.Opf);
@@ -143,14 +143,14 @@ namespace EpubSharp.Tests
             Assert.AreEqual("Chapter 1", chapters[0].Title);
             Assert.AreEqual("Chapter 2", chapters[1].Title);
 
-            Assert.AreEqual(2, epub.TableOfContents.Count);
+            Assert.AreEqual(2, epub.TableOfContents.EpubChapters.Count());
             for (var i = 0; i < chapters.Length; ++i)
             {
-                Assert.AreEqual(chapters[i].Title, epub.TableOfContents[i].Title);
-                Assert.AreEqual(chapters[i].FileName, epub.TableOfContents[i].FileName);
-                Assert.AreEqual(chapters[i].Anchor, epub.TableOfContents[i].Anchor);
+                Assert.AreEqual(chapters[i].Title, epub.TableOfContents.EpubChapters.ElementAt(i).Title);
+                Assert.AreEqual(chapters[i].FileName, epub.TableOfContents.EpubChapters.ElementAt(i).FileName);
+                Assert.AreEqual(chapters[i].Anchor, epub.TableOfContents.EpubChapters.ElementAt(i).Anchor);
                 Assert.AreEqual(0, chapters[i].SubChapters.Count);
-                Assert.AreEqual(0, epub.TableOfContents[i].SubChapters.Count);
+                Assert.AreEqual(0, epub.TableOfContents.EpubChapters.ElementAt(i).SubChapters.Count);
             }
         }
 
@@ -163,13 +163,13 @@ namespace EpubSharp.Tests
             writer.AddChapter("Chapter 3", "fooz barz");
 
             var epub = WriteAndRead(writer);
-            Assert.AreEqual(3, epub.TableOfContents.Count);
+            Assert.AreEqual(3, epub.TableOfContents.EpubChapters.Count());
 
             writer = new EpubWriter(epub);
             writer.ClearChapters();
             
             epub = WriteAndRead(writer);
-            Assert.AreEqual(0, epub.TableOfContents.Count);
+            Assert.AreEqual(0, epub.TableOfContents.EpubChapters.Count());
         }
 
         [Test]
@@ -179,7 +179,7 @@ namespace EpubSharp.Tests
             writer.ClearChapters();
 
             var epub = WriteAndRead(writer);
-            Assert.AreEqual(0, epub.TableOfContents.Count);
+            Assert.AreEqual(0, epub.TableOfContents.EpubChapters.Count());
         }
 
         [Test]

@@ -39,23 +39,20 @@ namespace EpubSharp
 
         public byte[] CoverImage { get; internal set; }
 
-        public List<EpubChapter> TableOfContents { get; internal set; }
+        public TableOfContents TableOfContents { get; internal set; }
 
         public bool IsPrePaginated()
         {
-            return Format.Opf.Metadata.Metas.Any(x => x.Property.Equals("rendition:layout") && x.Text.Equals("pre-paginated"));
+            return Format.Opf.Metadata.Metas != null && Format.Opf.Metadata.Metas.Any(x => x.Property != null && x.Property.Equals("rendition:layout") && x.Text != null && x.Text.Equals("pre-paginated"));
         }
 
-        public List<TocLink> GetTocLinks()
+        public ICollection<TocLink> GetTocLinks()
         {
             var spine = Spine();
             if (spine == null)
                 return new List<TocLink>();
-
-            // If Toc == NCX -> Epub 2
-            // If Toc == Nav -> Epub 3
-            var navPoints = spine.TOCEpub2.NavigationItems();
-                        
+            
+            var navPoints = TableOfContents.NavigationItems();                   
             var spines = AllSpines();
 
             if (navPoints.Any())
@@ -64,9 +61,9 @@ namespace EpubSharp
             return spines.Select((currentSpine, index) =>
                     new TocLink
                     {
-                        IdHref = currentSpine.Id,
+                        IdHref = currentSpine.IdRef,
                         Title = FormatPageOrChapter(index),
-                        Anchor = currentSpine.IdRef,
+                        Anchor = GetAnchor(currentSpine.IdRef),
                         Children = new List<TocLink>(),
                         Depth = 0
                     }).ToList();
@@ -101,27 +98,36 @@ namespace EpubSharp
             return string.Format("{0} {1}", fixedLayout ? "page" : "chapter", numberPageOrChapter);
         }
 
-        
 
+        private string GetAnchor(string pa)
+        {
+            var index = pa.IndexOf('#');
+            switch (index)
+            {
+                case -1: return pa;
+                default:
+                    return pa.Substring(index);
+            }
+        }
 
         private IEnumerable<TocLink> MapItemsWithSpines(IEnumerable<OpfSpineItemRef> items, int depth, IEnumerable<OpfSpineItemRef> spines)
         {
             return items.Select((navpoint, index) =>
             {
-                var r = spines.FirstOrDefault(x => CompareLinks(x.IdRef, navpoint.IdRef));
+                var currentSpine = spines.FirstOrDefault(x => CompareLinks(x.IdRef, navpoint.IdRef));
 
                 IEnumerable<TocLink> ci;
                 if (navpoint.Children.Any())
                 {
                     var childrenItems = MapItemsWithSpines(navpoint.Children, depth + 1, spines);
-                    ci = childrenItems.Count() > 1 ? childrenItems : new List<TocLink>();
+                    ci = childrenItems.Any() ? childrenItems : new List<TocLink>();
                 }
                 else
                     ci = new List<TocLink>();
 
-                if (r != null)
-                    return new TocLink { IdHref = r.Id, Title = navpoint.IdRef, Anchor = Anchor(navpoint.IdRef), Children = ci, Depth = depth };
-                return new TocLink { IdHref = navpoint.Id, Title = FormatPageOrChapter(index), Anchor = Anchor(navpoint.IdRef), Children = ci, Depth = depth };
+                if (currentSpine != null)
+                    return new TocLink { IdHref = currentSpine.Id, Title = navpoint.Title, Anchor = GetAnchor(navpoint.IdRef), Children = ci, Depth = depth };
+                return new TocLink { IdHref = navpoint.Id, Title = FormatPageOrChapter(index), Anchor = GetAnchor(navpoint.IdRef), Children = ci, Depth = depth };
             }).GroupBy(x => x.IdHref).Select(x => x.First());
         }
 
@@ -141,29 +147,39 @@ namespace EpubSharp
             }
             return linkProvided;
         }
-
-        private string Anchor(string pa)
-        {
-            var index = pa.IndexOf('#');
-            switch (index)
-            {
-                case -1: return pa;
-                default:
-                    return pa.Substring(index);
-            }
-        }
     }
 
     public class EpubChapter
     {
+        public string Id { get; set; }
         public string Title { get; set; }
         public string FileName { get; set; }
         public string Anchor { get; set; }
+        public string ContentSrc { get; set; }
         public IList<EpubChapter> SubChapters { get; set; } = new List<EpubChapter>();
 
         public override string ToString()
         {
             return $"Title: {Title}, Subchapter count: {SubChapters.Count}";
+        }
+    }
+
+    public class TableOfContents
+    {
+        public IEnumerable<EpubChapter> EpubChapters { get; internal set; }
+
+        public IEnumerable<OpfSpineItemRef> NavigationItems()
+        {
+            foreach (var chapter in EpubChapters)
+            {
+                yield return toSpineItem(chapter);
+            }
+        }
+
+        private OpfSpineItemRef toSpineItem(EpubChapter chapter)
+        {
+            var items = chapter.SubChapters != null && chapter.SubChapters.Any() ? chapter.SubChapters.Select(x => toSpineItem(x)).ToList() : new List<OpfSpineItemRef>();            
+            return new OpfSpineItemRef(chapter.Id, chapter.ContentSrc, chapter.Title, items);
         }
     }
 

@@ -25,11 +25,10 @@ namespace EpubSharp
 
             var result = models.Select(x =>
             {
-                //var fullPath = FileHelper.FormatPath(packageDir(), x.IdRef);
-                //if (counts.ContainsKey(fullPath))
-                //    return new WordCountItemElement { SpineItemRef = x, Count = counts[fullPath] };
-                if (counts.ContainsKey(x.IdRef))
-                    return new WordCountItemElement { SpineItemRef = x, Count = counts[x.IdRef] };
+                var packageDir = Path.GetDirectoryName(epubBook.Format.Ocf.RootFilePath);
+                var fullPath = "/" + FileHelper.FormatPath(packageDir, x.IdRef);                
+                if (counts.ContainsKey(fullPath))
+                    return new WordCountItemElement { SpineItemRef = x, Count = counts[fullPath] };
                 return new WordCountItemElement { SpineItemRef = x, Count = 0 };
             });
             var wordCountItem = new WordCountItem();
@@ -57,12 +56,11 @@ namespace EpubSharp
                             outputStream = entry.Open();
                             //else
                             //    entry.ExtractWithPassword(outputStream, password);
-
-                            outputStream.Flush();
+                                                        
                             var output = outputStream.ReadToEnd();
                             var text = Encoding.UTF8.GetString(output, 0, output.Length);
                             var parts = text.Split(' ', ';', '\r', '\n', '\t', ',', '.', '!', '?');
-                            yield return new Tuple<string, int>(fileName, parts.Length);
+                            yield return new Tuple<string, int>(fullFileName, parts.Length);
                         }
                     }
                 }

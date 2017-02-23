@@ -62,7 +62,7 @@ namespace EpubSharp
                 book.Resources = LoadResources(archive, book);
                 book.SpecialResources = LoadSpecialResources(archive, book);
                 book.CoverImage = LoadCoverImage(book);
-                book.TableOfContents = LoadChapters(book);
+                book.TableOfContents = new TableOfContents { EpubChapters = LoadChapters(book) };
                 return book;
             }
         }
@@ -124,6 +124,7 @@ namespace EpubSharp
                     var url = link.Attribute("href")?.Value;
                     if (url != null)
                     {
+                        chapter.ContentSrc = url;
                         var href = new Href(url);
                         chapter.FileName = href.Filename;
                         chapter.Anchor = href.Anchor;
@@ -152,6 +153,8 @@ namespace EpubSharp
             foreach (var navigationPoint in navigationPoints)
             {
                 var chapter = new EpubChapter { Title = navigationPoint.NavLabelText };
+                chapter.Id = navigationPoint.Id;
+                chapter.ContentSrc = navigationPoint.ContentSrc;
                 var href = new Href(navigationPoint.ContentSrc);
                 chapter.FileName = href.Filename;
                 chapter.Anchor = href.Anchor;

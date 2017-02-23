@@ -79,7 +79,7 @@ namespace EpubSharp.Tests
                 AssertContentFile(old, @new, nameof(actual.SpecialResources.HtmlInReadingOrder));
             });
 
-            AssertCollection(expected.TableOfContents, actual.TableOfContents, nameof(actual.TableOfContents), AssertChapter);
+            AssertCollection(expected.TableOfContents.EpubChapters, actual.TableOfContents.EpubChapters, nameof(actual.TableOfContents), AssertChapter);
 
             AssertOcf(expected.Format.Ocf, actual.Format.Ocf);
             AssertOpf(expected.Format.Opf, actual.Format.Opf);

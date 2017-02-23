@@ -269,9 +269,6 @@ namespace EpubSharp.Format
         }
 
         public string Toc { get; internal set; }
-        
-        public NavDocument TOCEpub3 { get; internal set; }
-        public NcxDocument TOCEpub2 { get; internal set; }
 
         public ICollection<OpfSpineItemRef> ItemRefs { get; internal set; } = new List<OpfSpineItemRef>();
 
@@ -285,15 +282,7 @@ namespace EpubSharp.Format
             foreach (var nav in ItemRefs)
                 foreach (var resource in manifest.Items)
                     if (nav.Id == resource.Id)
-                        yield return new OpfSpineItemRef(resource.Id, resource.Href, new List<OpfSpineItemRef>());
-        }
-
-        public ICollection<OpfSpineItemRef> NavigationItems(OpfManifest manifest)
-        {
-            // If Toc == NCX -> Epub 2
-            // If Toc == Nav -> Epub 3
-            var navigationItems = TOCEpub2.NavigationItems();
-            return navigationItems.Any() ? navigationItems.ToList() : Spines(manifest).ToList();
+                        yield return new OpfSpineItemRef(resource.Id, resource.Href, nav.Title, new List<OpfSpineItemRef>());
         }
     }
 
@@ -304,11 +293,12 @@ namespace EpubSharp.Format
         public OpfSpineItemRef()
         {
         }
-        public OpfSpineItemRef(string id, string href, List<OpfSpineItemRef> children)
+        public OpfSpineItemRef(string id, string href, string title, List<OpfSpineItemRef> children)
         {
             Id = id;
             IdRef = href;
             Children = children;
+            Title = title;
         }
 
         internal static class Attributes
@@ -329,7 +319,9 @@ namespace EpubSharp.Format
         public string Id { get; internal set; }
         public ICollection<string> Properties { get; internal set; } = new List<string>();
 
-        public IEnumerable<OpfSpineItemRef> Children;
+        public IEnumerable<OpfSpineItemRef> Children { get; internal set; } = new List<OpfSpineItemRef>();
+
+        public string Title { get; set; }
 
         public override string ToString()
         {
