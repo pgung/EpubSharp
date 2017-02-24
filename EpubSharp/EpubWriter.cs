@@ -94,7 +94,7 @@ namespace EpubSharp
             var writer = new EpubWriter(book);
             writer.Write(stream);
             stream.Seek(0, SeekOrigin.Begin);
-            var epub = EpubReader.Read(stream, false);
+            var epub = EpubReader.Read(stream, false, string.Empty);
             return epub;
         }
         

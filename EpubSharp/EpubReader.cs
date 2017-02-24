@@ -6,6 +6,9 @@ using System.Linq;
 using System.Xml.Linq;
 using EpubSharp.Format;
 using EpubSharp.Format.Readers;
+using Ionic.Zip;
+using System.Xml;
+using System.Text;
 
 namespace EpubSharp
 {
@@ -19,48 +22,83 @@ namespace EpubSharp
             {
                 throw new FileNotFoundException("Specified epub file not found.", filePath);
             }
-
-            return Read(File.Open(filePath, FileMode.Open, FileAccess.Read), false);
+            using (var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read))
+            {
+                return Read(fileStream, false, password);
+            }                
         }
 
-        public static EpubBook Read(byte[] epubData)
+        public static EpubBook Read(byte[] epubData, string password)
         {
-            return Read(new MemoryStream(epubData), false);
+            return Read(new MemoryStream(epubData), false, password);
         }
 
-        public static EpubBook Read(Stream stream, bool leaveOpen)
+        
+
+
+        public static EpubBook Read(Stream stream, bool leaveOpen, string password)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
-
-            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen, Constants.DefaultEncoding))
+            using (var archive = ZipFile.Read(stream))
             {
-                var format = new EpubFormat { Ocf = OcfReader.Read(archive.LoadXml(Constants.OcfPath)) };
+                // OCF
+                var entryOCF = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(Constants.OcfPath));
+                if (entryOCF == null)
+                {
+                    throw new EpubParseException("Epub OCF doesn't specify a root file.");
+                }
 
+                var textOCF = GetText(entryOCF, password);
+                var format = new EpubFormat { Ocf = OcfReader.Read(XDocument.Parse(textOCF)) };
+                
                 var rootFilePath = format.Ocf.RootFilePath;
                 if (rootFilePath == null)
                 {
                     throw new EpubParseException("Epub OCF doesn't specify a root file.");
                 }
+                
+                // OPF
+                var entryOPF = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(rootFilePath));
+                if (entryOPF == null)
+                {
+                    throw new EpubParseException("Epub OPF doesn't specify a root file.");
+                }
+                var textOPF = GetText(entryOPF, password);                
 
-                format.Opf = OpfReader.Read(archive.LoadXml(rootFilePath));
+                format.Opf = OpfReader.Read(XDocument.Parse(textOPF));
 
+
+                // Nav
                 var navPath = format.Opf.FindNavPath();
                 if (navPath != null)
                 {
                     var absolutePath = PathExt.Combine(PathExt.GetDirectoryPath(rootFilePath), navPath);
-                    format.Nav = NavReader.Read(archive.LoadHtml(absolutePath));
+                    var entryNav = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(absolutePath));
+                    if (entryNav != null)
+                    {
+                        var textNav = GetText(entryNav, password);
+                        format.Nav = NavReader.Read(XDocument.Parse(textNav));
+                    }                    
                 }
 
+                // Ncx
                 var ncxPath = format.Opf.FindNcxPath();
                 if (ncxPath != null)
                 {
                     var absolutePath = PathExt.Combine(PathExt.GetDirectoryPath(rootFilePath), ncxPath);
-                    format.Ncx = NcxReader.Read(archive.LoadXml(absolutePath));
+
+                    var entryNcx = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(absolutePath));
+                    if (entryNcx != null)
+                    {
+                        var textNcx = GetText(entryNcx, password);
+
+                        format.Ncx = NcxReader.Read(XDocument.Parse(textNcx));
+                    }                    
                 }
 
                 var book = new EpubBook { Format = format };
-                book.Resources = LoadResources(archive, book);
-                book.SpecialResources = LoadSpecialResources(archive, book);
+                book.Resources = LoadResources(archive, book, password);
+                book.SpecialResources = LoadSpecialResources(archive, book, password);
                 book.CoverImage = LoadCoverImage(book);
                 book.TableOfContents = new TableOfContents { EpubChapters = LoadChapters(book) };
                 return book;
@@ -164,20 +202,20 @@ namespace EpubSharp
             return result;
         }
 
-        private static EpubResources LoadResources(ZipArchive epubArchive, EpubBook book)
+        private static EpubResources LoadResources(ZipFile epubArchive, EpubBook book, string password)
         {
             var resources = new EpubResources();
 
             foreach (var item in book.Format.Opf.Manifest.Items)
             {
                 var path = PathExt.Combine(Path.GetDirectoryName(book.Format.Ocf.RootFilePath), item.Href);
-                var entry = epubArchive.GetEntryImproved(path);
+                var entry = epubArchive.Entries.FirstOrDefault(x => x.FileName.Equals(path));
 
                 if (entry == null)
                 {
                     throw new EpubParseException($"file {path} not found in archive.");
                 }
-                if (entry.Length > int.MaxValue)
+                if (entry.UncompressedSize > int.MaxValue)
                 {
                     throw new EpubParseException($"file {path} is bigger than 2 Gb.");
                 }
@@ -207,7 +245,8 @@ namespace EpubSharp
                                 ContentType = contentType
                             };
 
-                            using (var stream = entry.Open())
+
+                            using (var stream = GetMemoryStream(entry, password))
                             {
                                 file.Content = stream.ReadToEnd();
                             }
@@ -235,14 +274,14 @@ namespace EpubSharp
                                 ContentType = contentType
                             };
 
-                            using (var stream = entry.Open())
+                            using (var stream = GetMemoryStream(entry, password))
                             {
                                 if (stream == null)
                                 {
                                     throw new EpubException($"Incorrect EPUB file: content file \"{fileName}\" specified in manifest is not found");
                                 }
 
-                                using (var memoryStream = new MemoryStream((int)entry.Length))
+                                using (var memoryStream = new MemoryStream())
                                 {
                                     stream.CopyTo(memoryStream);
                                     file.Content = memoryStream.ToArray();
@@ -273,8 +312,21 @@ namespace EpubSharp
             return resources;
         }
 
-        private static EpubSpecialResources LoadSpecialResources(ZipArchive epubArchive, EpubBook book)
+        private static MemoryStream GetMemoryStream(ZipEntry entry, string password)
         {
+            var stream = new MemoryStream();
+            if (string.IsNullOrEmpty(password))
+                entry.Extract(stream);
+            else
+                entry.ExtractWithPassword(stream, password);
+            return stream;
+        }
+
+        private static EpubSpecialResources LoadSpecialResources(ZipFile epubArchive, EpubBook book, string password)
+        {
+            var entryOcf = epubArchive.Entries.FirstOrDefault(x => x.FileName.Equals(Constants.OcfPath));
+            var entryOpf = epubArchive.Entries.FirstOrDefault(x => x.FileName.Equals(book.Format.Ocf.RootFilePath));
+
             var result = new EpubSpecialResources
             {
                 Ocf = new EpubTextFile
@@ -282,14 +334,14 @@ namespace EpubSharp
                     FileName = Constants.OcfPath,
                     ContentType = EpubContentType.Xml,
                     MimeType = ContentType.ContentTypeToMimeType[EpubContentType.Xml],
-                    Content = epubArchive.LoadBytes(Constants.OcfPath)
+                    Content = GetExtract(entryOcf, password)
                 },
                 Opf = new EpubTextFile
                 {
                     FileName = book.Format.Ocf.RootFilePath,
                     ContentType = EpubContentType.Xml,
                     MimeType = ContentType.ContentTypeToMimeType[EpubContentType.Xml],
-                    Content = epubArchive.LoadBytes(book.Format.Ocf.RootFilePath)
+                    Content = GetExtract(entryOpf, password)
                 },
                 HtmlInReadingOrder = new List<EpubTextFile>()
             };
@@ -314,6 +366,26 @@ namespace EpubSharp
             }
 
             return result;
+        }
+
+
+        private static byte[] GetExtract(ZipEntry entry, string password)
+        {
+            if (entry == null) return null;
+
+            byte[] output;
+            using (var outputStream = GetMemoryStream(entry, password))
+            {
+                outputStream.Flush();
+                outputStream.Position = 0;
+                output = outputStream.ToArray();
+            }
+
+            return output;
+        }
+        private static string GetText(ZipEntry entry, string password)
+        {
+            return Encoding.UTF8.GetString(GetExtract(entry, password));
         }
     }
 }

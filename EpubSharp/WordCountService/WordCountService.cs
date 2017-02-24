@@ -1,4 +1,5 @@
 ﻿using EpubSharp.Format;
+using Ionic.Zip;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -39,32 +40,28 @@ namespace EpubSharp
 
         private static IEnumerable<Tuple<string, int>> CountHtmlWords(string fileName, string password)
         {
-            using (var fileStream = File.Open(fileName, FileMode.Open, FileAccess.Read))
+            using (var zipFile = ZipFile.Read(fileName))
             {
-                using (var zipFile = new ZipArchive(fileStream, ZipArchiveMode.Read, false, Constants.DefaultEncoding))
+                foreach (var entry in zipFile.Entries)
                 {
-                    foreach (var entry in zipFile.Entries)
+                    var fullFileName = !entry.FileName.StartsWith("/", StringComparison.CurrentCulture) ? "/" + entry.FileName : entry.FileName;
+                    if (txtExtensions.Any(extention => fullFileName.EndsWith(extention, StringComparison.CurrentCulture)))
                     {
-                        var fullFileName = !entry.FullName.StartsWith("/", StringComparison.CurrentCulture) ? "/" + entry.FullName : entry.FullName;
-                        if (txtExtensions.Any(extention => fullFileName.EndsWith(extention, StringComparison.CurrentCulture)))
+                        using (var outputStream = new MemoryStream())
                         {
-                            Stream outputStream;
+                            if (string.IsNullOrEmpty(password))
+                                entry.Extract(outputStream);
+                            else
+                                entry.ExtractWithPassword(outputStream, password);
 
-                            // TODO : use DotNetZip library ou Ionic Zip for password
-
-                            //if (string.IsNullOrEmpty(password))
-                            outputStream = entry.Open();
-                            //else
-                            //    entry.ExtractWithPassword(outputStream, password);
-                                                        
                             var output = outputStream.ReadToEnd();
                             var text = Encoding.UTF8.GetString(output, 0, output.Length);
                             var parts = text.Split(' ', ';', '\r', '\n', '\t', ',', '.', '!', '?');
                             yield return new Tuple<string, int>(fullFileName, parts.Length);
-                        }
+                        }                                
                     }
                 }
-            }
+            }                
         }
     }
 
