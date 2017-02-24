@@ -36,8 +36,7 @@ namespace EpubSharp
             wordCountItem.AddRange(result);
             return wordCountItem;
         }
-
-
+        
         private static IEnumerable<Tuple<string, int>> CountHtmlWords(string fileName, string password)
         {
             using (var zipFile = ZipFile.Read(fileName))
@@ -47,13 +46,8 @@ namespace EpubSharp
                     var fullFileName = !entry.FileName.StartsWith("/", StringComparison.CurrentCulture) ? "/" + entry.FileName : entry.FileName;
                     if (txtExtensions.Any(extention => fullFileName.EndsWith(extention, StringComparison.CurrentCulture)))
                     {
-                        using (var outputStream = new MemoryStream())
+                        using (var outputStream = EpubReader.GetMemoryStream(entry, password))
                         {
-                            if (string.IsNullOrEmpty(password))
-                                entry.Extract(outputStream);
-                            else
-                                entry.ExtractWithPassword(outputStream, password);
-
                             var output = outputStream.ReadToEnd();
                             var text = Encoding.UTF8.GetString(output, 0, output.Length);
                             var parts = text.Split(' ', ';', '\r', '\n', '\t', ',', '.', '!', '?');
@@ -190,7 +184,6 @@ namespace EpubSharp
 
     public static class FileHelper
     {
-        // equivalent F# de />>
         public static string FormatPath(string p1, string p2)
         {
             var path = p2.StartsWith("/", StringComparison.CurrentCulture) && p2 != "/" ? Path.Combine(p1, p2.Substring(1)) : Path.Combine(p1, p2);

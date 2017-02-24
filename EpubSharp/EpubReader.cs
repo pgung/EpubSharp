@@ -24,19 +24,17 @@ namespace EpubSharp
             }
             using (var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read))
             {
-                return Read(fileStream, false, password);
+                return Read(fileStream, password);
             }                
         }
 
         public static EpubBook Read(byte[] epubData, string password)
         {
-            return Read(new MemoryStream(epubData), false, password);
-        }
-
-        
+            return Read(new MemoryStream(epubData), password);
+        }        
 
 
-        public static EpubBook Read(Stream stream, bool leaveOpen, string password)
+        public static EpubBook Read(Stream stream, string password)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
             using (var archive = ZipFile.Read(stream))
@@ -44,27 +42,19 @@ namespace EpubSharp
                 // OCF
                 var entryOCF = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(Constants.OcfPath));
                 if (entryOCF == null)
-                {
                     throw new EpubParseException("Epub OCF doesn't specify a root file.");
-                }
-
                 var textOCF = GetText(entryOCF, password);
                 var format = new EpubFormat { Ocf = OcfReader.Read(XDocument.Parse(textOCF)) };
-                
+
                 var rootFilePath = format.Ocf.RootFilePath;
                 if (rootFilePath == null)
-                {
                     throw new EpubParseException("Epub OCF doesn't specify a root file.");
-                }
                 
                 // OPF
                 var entryOPF = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(rootFilePath));
                 if (entryOPF == null)
-                {
                     throw new EpubParseException("Epub OPF doesn't specify a root file.");
-                }
                 var textOPF = GetText(entryOPF, password);                
-
                 format.Opf = OpfReader.Read(XDocument.Parse(textOPF));
 
 
@@ -86,12 +76,10 @@ namespace EpubSharp
                 if (ncxPath != null)
                 {
                     var absolutePath = PathExt.Combine(PathExt.GetDirectoryPath(rootFilePath), ncxPath);
-
                     var entryNcx = archive.Entries.SingleOrDefault(entry => entry.FileName.Equals(absolutePath));
                     if (entryNcx != null)
                     {
                         var textNcx = GetText(entryNcx, password);
-
                         format.Ncx = NcxReader.Read(XDocument.Parse(textNcx));
                     }                    
                 }
@@ -312,7 +300,7 @@ namespace EpubSharp
             return resources;
         }
 
-        private static MemoryStream GetMemoryStream(ZipEntry entry, string password)
+        internal static MemoryStream GetMemoryStream(ZipEntry entry, string password)
         {
             var stream = new MemoryStream();
             if (string.IsNullOrEmpty(password))
